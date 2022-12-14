@@ -1,19 +1,38 @@
-from aiogram import Bot, Dispatcher, executor, types                                                                    #установил модуль для работы ТГ бота
-import requests                                                                                                         #установил модуль для работы с сайтами
-from bs4 import BeautifulSoup                                                                                           #установил модуль для анализа страницы
-from openpyxl import load_workbook                                                                                      #установил модуль для переноса данных в эксель
+from aiogram import Bot, Dispatcher, executor, types     # для ТГ бота
+import requests                                          # для запроса с сайтов
+from bs4 import BeautifulSoup                            # для скрапинга
+from openpyxl import load_workbook                       # для перевода в excel
 
-#Раздел, связанный с настройкой бота
-API_TOKEN = '5908870637:AAGqVbjT9V6SZb3zWlC2NGiOA4E9pkdB-BE'                                                            #Задаю переменную для своего токена ТГ
-bot = Bot(token=API_TOKEN)                                                                                              #Передаем боту токен, чтобы была инициализация
-dp = Dispatcher(bot)                                                                                                    #Отслеживает обновления?
-@dp.message_handler(commands=['start'])                                                                                 #Указываем, на какую команду пользователя запускать функцию. Я не знаю, что значит "@"
-async def send_welcome(message: types.Message):                                                                         #исполняется функция с аргументом, который написал пользователь, 'start'
-   await message.reply("Привет!\nЯ первый бот Фарида!\nОтправь мне любое название вакансии, а я тебе обязательно сброшу excel-таблицу с доступными вакансиями на hh.ru") #в статье написано, что обязательно надо писать await, так как программа работает асинхронно, но у меня нет понимания, что это значит
-@dp.message_handler(content_types=["text"])                                                                             #вызывается событие в ответ на любой текст пользователя
-async def send_file(message: types.Document):                                                                           #аргументом является сообщение пользователя, а ответом файл?
+
+# Раздел, связанный с настройкой бота. Как я понял из статьи на хабре -
+# нужно задать переменную для своего токена ТГ, после чего передаем боту
+# команду инициализации, после чего некий диспатчер, не понимаю значение
+API_TOKEN = '5908870637:AAGqVbjT9V6SZb3zWlC2NGiOA4E9pkdB-BE'
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+
+
+# Благодаря строке @dp.message_handler мы задаем функцию, которая запускается,
+# когда пользователь пишет "/start". В ответ бот пишет ему автоответ.
+# В статье написано, что обязательно надо писать await, так как программа
+# работает асинхронно, но у меня нет понимания, что это значит
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+   await message.reply("Привет!\nЯ первый бот Фарида!\nОтправь мне любое"
+                       " название вакансии, а я тебе обязательно сброшу"
+                       " excel-таблицу с доступными вакансиями на hh.ru")
+
+
+# Благодаря строке @dp.message_handler мы задаем функцию, которая запускается
+# с аргументом, содержащим любой текст пользователя.
+# В ответ возвращается файл
+@dp.message_handler(content_types=["text"])
+async def send_file(message: types.Document):
     # ЧАСТЬ ПЕРВАЯ - ФОРМУЛИРОВАНИЕ НУЖНОЙ АДРЕСНОЙ СТРОКИ И ЗАПИСЬ В ФАЙЛ
-    URL_dict = {'а': '%D0%B0', 'б': '%D0%B1', 'в': '%D0%B2', 'г': '%D0%B3',
+    # я пытался найти готовые словари с расшифровкой процентной кодировки,
+    # но безуспешно. Нагуглил, что вроде как есть библиотеки с методами, но
+    # я не смог разобраться. В итоге оказалось проще вручную создать словарь
+    url_dict = {'а': '%D0%B0', 'б': '%D0%B1', 'в': '%D0%B2', 'г': '%D0%B3',
                 'д': '%D0%B4', 'е': '%D0%B5', 'ё': '%D0%B5', 'ж': '%D0%B6',
                 'з': '%D0%B7', 'и': '%D0%B8', 'й': '%D0%B9', 'к': '%D0%BA',
                 'л': '%D0%BB', 'м': '%D0%BC', 'н': '%D0%BD', 'о': '%D0%BE',
@@ -47,94 +66,154 @@ async def send_file(message: types.Document):                                   
                 '!': '%21', '#': '%23', '$': '%24', '%': '%25', '&': '%26',
                 "'": "%27", '(': '%28', ')': '%29', '*': '%2A', '+': '%2B',
                 ',': '%2C', '/': '%2F', ':': '%3A', ';': '%3B', '=': '%3D',
-                '?': '%3F', '@': '%40', '[': '%5B',
-                ']': '%5D'}                                                                                             # гуглил готовые словари или модули, не нашел, решил вручную вбить
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                             'Chrome/108.0.0.0 Safari/537.36'}                                                          # без headers был ответ 404. Нагуглил решение,
-                                                                                                                        # что нужен headers, но я толком не понимаю что это и зачем нужно, что-то типо первичной отправки инфы на сервер ХХ,
-                                                                                                                        # кто отправил запрос, чтобы получить одобрение
-    vacancy = ''.join([URL_dict[i] for i in
-                       message.text])                                                                                   # разбил вводимое слово на список из символов, чтобы использовать их, как ключи словаря
-    HH_URL = 'https://hh.ru/search/vacancy?text=' + vacancy                                                             # на основе вводимого слова и словаря сделал конструктор текста требуемой адресной строки
-    my_request = requests.get(HH_URL, headers=headers)                                                                  # как я понял из гугла, таким образом мы получаем ответ от сайта
+                '?': '%3F', '@': '%40', '[': '%5B', ']': '%5D'}
+    # Изначально я делал без headers, но тогда приходил ответ 404.
+    # Погуглив, узнал, что нужна некая "шапка", дающая сайту
+    # первичную информацию об устройстве, которая запрашивает инфу.
+    # Можно сказать, что это фейс-контроль
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                             'AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/108.0.0.0 Safari/537.36'}
+
+    # Изучив адресную строку на сайте ХХ, обратил внимание, что есть
+    # константа - 'https://hh.ru/search/vacancy?text=', а мой запрос вакансии
+    # отображается в виде процентной кодировки. Сделав заранее словарь
+    # конвертации, можно разбить слово побуквенно на список символов 'vacancy',
+    # где ключ заменяется на значение ключа. Чтобы взять фразу пользователя
+    # в ТГ, как вводное слово, нагуглил метод 'message.text'. Таким образом,
+    # создаем переменную, которая является конструктором текста адресной строки
+    vacancy = ''.join([url_dict[i] for i in message.text])
+    hh_url = 'https://hh.ru/search/vacancy?text=' + vacancy
+
+    # У меня нет полного понимания команды 'requests.get', но это нужно,
+    # чтобы получить ответ от сайта, с приветственной шапкой headers
+    my_request = requests.get(hh_url, headers=headers)
+
+    # Далее создаем файл 'vacancy_list.html' в режиме записи байтов,
+    # куда записываем в виде сухого текста все данные
+    # из переменной 'my_request', в кодировке 'utf-8'
     with open('Vacancy_list.html', 'wb') as output_file:
-        output_file.write(my_request.text.encode(
-            'utf-8'))                                                                                                   # как я понял, таким образом мы сохраняем страницу в файл и в кодировке utf-8
+        output_file.write(my_request.text.encode('utf-8'))
 
     # ЧАСТЬ ВТОРАЯ - РАБОТА С ФАЙЛОМ И СОСТАВЛЕНИЕ СПИСКА ВАКАНСИЙ
-    with open('Vacancy_list.html', 'r',
-              encoding='utf-8') as vacancy_page:                                                                        # открываю файл в режиме чтения, задаю имя переменной
-        soup = BeautifulSoup(vacancy_page,
-                             features="lxml")                                                                           # как я понял, это модуль для анализа содержимого веб-страниц
-        vacancy_tab = soup.find('div', {
-            'class': 'vacancy-serp-content'})                                                                           # с помощью метода поиска нашел по тегу столбец на сайте, который отвечает за выпадающие вакансии
-        vacancies = vacancy_tab.find_all('div', {
-            'class': 'serp-item'})                                                                                      # объединил одинаковые элементы в одну группу, чтобы воспользоваться циклом for
-        vacancy_list = []                                                                                               # создал пустой список для дальнейшего наполнения
+    # Далее открываем файл 'vacancy_list.html' в режиме чтения, после чего
+    # применяем функцию 'BeautifulSoup', который, как я понял, каким-то
+    # образом структурирует данные в файле, что позволяет, в дальнейшем,
+    # с помощью поискового метода '.find()' искать подходящие нам строки
+    # кода с нужной нам информацией. Поигравшись с методом, я понял, что все
+    # данные в супе построены в виде древа. Таким образом, если мы с помощью
+    # метода '.find()' найдем нужный нам кусок древа, то, в дальнейшем,
+    # можем воспользоваться методом '.find_all()', который позволяет
+    # через цикл for перебирать все элементы древа одного этажа.
+    # Заранее необходимо создать пустой список, куда мы будем заносить
+    # нужные нам элементы при переборе элементов через цикл for
+    with open('Vacancy_list.html', 'r', encoding='utf-8') as vacancy_page:
+        soup = BeautifulSoup(vacancy_page, features="lxml")
+        vacancy_tab = soup.find('div', {'class': 'vacancy-serp-content'})
+        vacancies = vacancy_tab.find_all('div', {'class': 'serp-item'})
+        vacancy_list = []
         for vacancy in vacancies:
+            # Методика перебора следующая - мы находим нужный нам тэг и
+            # прежде чем записывать информацию через метод '.get()', необходимо
+            # провести проверку на тип данных, найденных через метод '.find()'.
+            # Если тип данных None, это говорит о том, что требуемая нам строка
+            # отсутствует, что привело бы к ошибке при написании '.get()'.
+            # Чтобы этого избежать, задаем этой переменной значение прочерка,
+            # после чего спокойно заносим в список. К слову, нам нужен список с
+            # одинаковым числом элементов при каждом цикле for, т.к, в
+            # дальнейшем, буду ссылаться на элементы по индексам от [0] до [6]
             vacancy_info = []
-            vacancy_link = vacancy.find(
-                'a')                                                                                                    # изучив веб-страницу, я заметил, что ссылка всегда находится в строке, которая начинается на 'a'
-            if vacancy_link is not None:                                                                                # здесь и далее, чтобы не возникала ошибка того, что я пытаюсь манипулировать с объектом типо None, провожу проверку
-                vacancy_link = vacancy.find('a').get(
-                    'href')                                                                                             # если проверка успешна - присваиваю переменной требуемую строку
+
+            # Строки, используемые при использовании метода '.find()', были
+            # мною выведены после анализа исходного кода страницы вакансий.
+            # Подобрал их по закономерностям.
+            # Отдельно упомяну то, что при первых прогонах программы замечал,
+            # что возникают артефакты в виде текста '\u202f', '\xa0'.
+            # Как я понял, это табуляция, поэтому избавляюсь от них
+            # с помощью метода ''.replace()
+            vacancy_link = vacancy.find('a')
+            if vacancy_link is not None:
+                vacancy_link = vacancy.find('a').get('href')
             else:
-                vacancy_link = '-'                                                                                      # если проверка провалена - ставлю прочерк, так как строка пустая, но для будущего списка нужно соблюдать равное число элементов списка
-            vacancy_name = vacancy.find('a')                                                                            # поиск названия вакансии
+                vacancy_link = '-'
+
+            vacancy_name = vacancy.find('a')
             if vacancy_name is not None:
                 vacancy_name = vacancy.find('a').text
             else:
                 vacancy_name = '-'
-            vacancy_salary = vacancy.find('span', {'class': 'bloko-header-section-3'})                                  # поиск зарплаты по вакансии
+
+            vacancy_salary = vacancy.find('span', {
+                'class': 'bloko-header-section-3'})
             if vacancy_salary is not None:
-                vacancy_salary = vacancy.find('span', {'class': 'bloko-header-section-3'}).text
-                s1 = vacancy_salary.replace('\u202f',
-                                            ' ')                                                                        # здесь и далее - замечал артефакты в строках, связанных с отступами. Решил их удалить через строковый метод replace()
+                vacancy_salary = vacancy.find('span', {
+                    'class': 'bloko-header-section-3'}).text
+                s1 = vacancy_salary.replace('\u202f', ' ')
                 s2 = s1.replace('\xa0', ' ')
                 vacancy_salary = s2
             else:
                 vacancy_salary = '-'
+
             vacancy_company = vacancy.find('a', {
-                'class': 'bloko-link bloko-link_kind-tertiary'})                                                        # поиск названия компании работодателя
+                'class': 'bloko-link bloko-link_kind-tertiary'})
             if vacancy_company is not None:
-                vacancy_company = vacancy.find('a', {'class': 'bloko-link bloko-link_kind-tertiary'}).text
+                vacancy_company = vacancy.find('a', {
+                    'class': 'bloko-link bloko-link_kind-tertiary'}).text
                 s1 = vacancy_company.replace('\xa0', ' ')
                 vacancy_company = s1
             else:
                 vacancy_company = '-'
+
             vacancy_city = vacancy.find('div', {
-                'data-qa': 'vacancy-serp__vacancy-address'})                                                            # поиск указанного города по вакансии
+                'data-qa': 'vacancy-serp__vacancy-address'})
             if vacancy_city is not None:
-                vacancy_city = vacancy.find('div', {'data-qa': 'vacancy-serp__vacancy-address'}).text
+                vacancy_city = vacancy.find('div', {
+                    'data-qa': 'vacancy-serp__vacancy-address'}).text
                 s1 = vacancy_city.replace('\xa0', ' ')
                 vacancy_city = s1
             else:
                 vacancy_city = '-'
+
             vacancy_description = vacancy.find('div', {
-                'data-qa': 'vacancy-serp__vacancy_snippet_responsibility'})                                             # поиск строки с описанием вакансии
+                'data-qa': 'vacancy-serp__vacancy_snippet_responsibility'})
             if vacancy_description is not None:
-                vacancy_description = vacancy.find('div',
-                                                   {'data-qa': 'vacancy-serp__vacancy_snippet_responsibility'}).text
+                vacancy_description = vacancy.find('div', {
+                    'data-qa': 'vacancy-serp__'
+                               'vacancy_snippet_responsibility'}).text
             else:
                 vacancy_description = '-'
+
             vacancy_requirement = vacancy.find('div', {
-                'data-qa': 'vacancy-serp__vacancy_snippet_requirement'})                                                # поиск строки с описанием требований по вакансии
+                'data-qa': 'vacancy-serp__vacancy_snippet_requirement'})
             if vacancy_requirement is not None:
-                vacancy_requirement = vacancy.find('div', {'data-qa': 'vacancy-serp__vacancy_snippet_requirement'}).text
+                vacancy_requirement = vacancy.find('div', {
+                    'data-qa': 'vacancy-serp__'
+                               'vacancy_snippet_requirement'}).text
             else:
                 vacancy_requirement = '-'
+            # Каждую переменную заношу в список 'vacancy_info'
+            # в строгой последовательности, так как в дальнейшем
+            # буду ссылаться на них по индексам. После того как сформируется
+            # список 'vacancy_info', я заношу его в заранее созданный список
+            # vacancy_list, после чего цикл фор переходит
+            # на следующую переменную
             vacancy_info.append(vacancy_link)
             vacancy_info.append(vacancy_name)
             vacancy_info.append(vacancy_salary)
             vacancy_info.append(vacancy_company)
             vacancy_info.append(vacancy_city)
             vacancy_info.append(vacancy_description)
-            vacancy_info.append(vacancy_requirement)                                                                    # добавляю полученные данные в список vacancy_info на каждом цикле
-            vacancy_list.append(
-                vacancy_info)                                                                                           # каждый полученный список vacancy_info Добавляю в итоговый список vacancy_list
+            vacancy_info.append(vacancy_requirement)
+            vacancy_list.append(vacancy_info)
 
-        # ЧАСТЬ ТРЕТЬЯ - ЗАНЕСЕНИЕ ДАННЫХ ПО ВАКАНСИЯМ В EXCEL-ТАБЛИЦУ
-        fn = 'vacancy_excel_list.xlsx'                                                                                  # подсмотрел на ютубе модуль openpyxl для работы с эксель таблицами
+        # ЧАСТЬ ТРЕТЬЯ - ЗАНЕСЕНИЕ ДАННЫХ ПО ВАКАНСИЯМ В EXCEL-ТАБЛИЦУ.
+        # Подсмотрел видео на Ютубе, где описывается библиотека openpyxl
+        # для работы с excel-таблицами. У меня нет понимания, как именно
+        # работают load_workbook(), wb[] и аргументы функций, просто методом
+        # проб и ошибок разобрался, что надо написать, чтобы работало.
+        # Предварительно при каждой итерации стираются все ячейки 100:100
+        # благодаря методам '.delete_cols()' и '.delete_rows()'
+        fn = 'vacancy_excel_list.xlsx'
         wb = load_workbook(fn)
         ws = wb['data']
         ws.delete_cols(1, 100)
@@ -147,6 +226,9 @@ async def send_file(message: types.Document):                                   
         ws['F1'] = 'Город'
         ws['G1'] = 'Описание Вакансии'
         ws['H1'] = 'Требование по Вакансии'
+
+        # так как мы ведем запись со второй строки, а индексы начинаются
+        # с 0, поставил i = 2 для цикла for
         i = 2
         for vacancy in vacancy_list:
             ws['A' + str(i)] = i - 1
@@ -159,8 +241,17 @@ async def send_file(message: types.Document):                                   
             ws['H' + str(i)] = vacancy[6]
             i += 1
         wb.save(fn)
-        wb.close()                                                                                                      # по окончанию работы программы получаем готовую Excel-таблицу
-    await message.reply_document(open(r'C:\Users\doggf\OneDrive\Документы\GitHub\MyFirstRepository\Мой первый тг-бот\vacancy_excel_list.xlsx', 'rb')) # файл отправляется пользователю в ТГ
+        wb.close()
 
-if __name__ == '__main__':                                                                                              # как я понял это нужно, чтобы бот запустил работу
+    # По окончанию работы программы получаем готовую excel-таблицу для
+    # отправки пользователю. Для этого мы пишем следующий код со ссылкой
+    # на местоположение файла в режиме чтения байтов
+    await message.reply_document(open(r'C:\Users\doggf\OneDrive\Документы'
+                                      r'\GitHub\MyFirstRepository'
+                                      r'\Мой первый тг-бот'
+                                      r'\vacancy_excel_list.xlsx', 'rb'))
+
+# Честно ничего не понимаю в коде ниже, просто скопировал со статьи на хабре.
+# В дальнейшем вернусь, чтобы разобраться в функции, аргументах и синтаксисе
+if __name__ == '__main__':
    executor.start_polling(dp, skip_updates=True)

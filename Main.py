@@ -246,9 +246,9 @@ async def send_file(message: types.Document):
     # По окончанию работы программы получаем готовую excel-таблицу для
     # отправки пользователю. Для этого мы пишем следующий код со ссылкой
     # на местоположение файла в режиме чтения байтов
-    await message.reply_document(open(r'C:\Users\doggf\OneDrive\Документы'
-                                      r'\GitHub\MyFirstRepository'
-                                      r'\Мой первый тг-бот'
+    await message.reply_document(open(r'C:\Users\doggf\OneDrive'
+                                      r'\Документы\GitHub'
+                                      r'\my_first_telegram_bot'
                                       r'\vacancy_excel_list.xlsx', 'rb'))
 
 # Честно ничего не понимаю в коде ниже, просто скопировал со статьи на хабре.
